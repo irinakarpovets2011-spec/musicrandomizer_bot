@@ -6,14 +6,27 @@ songs = []
 
 async def start(update, context):
     await update.message.reply_text(
-        "Привіт! 🎵 Скидай мені пісні (аудіо), а коли закінчиш — напиши /shuffle"
+        "Привіт! 🎵 Скидай мені пісні (аудіо, голосові або файли), а коли закінчиш — напиши /shuffle"
     )
 
 async def save_song(update, context):
-    audio = update.message.audio
-    if audio:
-        songs.append(audio.file_id)
-        await update.message.reply_text(f"Додав пісню: {audio.title or 'Без назви'}")
+    if update.message.audio:
+        songs.append(update.message.audio.file_id)
+        title = update.message.audio.title or "Без назви"
+    elif update.message.voice:
+        songs.append(update.message.voice.file_id)
+        title = "Голосове повідомлення"
+    elif update.message.document:
+        if update.message.document.mime_type.startswith("audio"):
+            songs.append(update.message.document.file_id)
+            title = update.message.document.file_name or "Аудіофайл"
+        else:
+            await update.message.reply_text("Це не аудіо, будь ласка скидай тільки пісні.")
+            return
+    else:
+        await update.message.reply_text("Не можу зберегти цей файл, скидай аудіо чи голосове.")
+        return
+    await update.message.reply_text(f"Додав пісню: {title}")
 
 async def shuffle_songs(update, context):
     if not songs:
@@ -28,6 +41,7 @@ async def shuffle_songs(update, context):
 app = ApplicationBuilder().token(TOKEN).build()
 app.add_handler(CommandHandler("start", start))
 app.add_handler(CommandHandler("shuffle", shuffle_songs))
-app.add_handler(MessageHandler(filters.AUDIO, save_song))
+app.add_handler(MessageHandler(filters.AUDIO | filters.VOICE | filters.Document.MIME("audio/*"), save_song))
 
 app.run_polling()
+
